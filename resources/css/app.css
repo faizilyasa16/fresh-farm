@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.{jsx,js}';
+
+@theme {
+    --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    
+    /* Earthy Livestock & Farm Palette */
+    --color-forest-950: #0a1811;
+    --color-forest-900: #0f241a;
+    --color-forest-800: #1b4332;
+    --color-forest-700: #2d6a4f;
+    --color-forest-600: #40916c;
+    --color-forest-500: #52b788;
+    --color-forest-100: #d8f3dc;
+    --color-forest-50: #f2fbf5;
+
+    --color-sand-50: #fbfbf9;
+    --color-sand-100: #f4f2ec;
+    --color-sand-200: #e7e5df;
+    --color-sand-300: #d6d3cb;
+
+    --color-terracotta-500: #ea580c;
+    --color-terracotta-600: #c2410c;
+    --color-terracotta-700: #9a3412;
+
+    --color-amber-farm: #d97706;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--color-sand-50);
+    color: #1c1917;
+    -webkit-font-smoothing: antialiased;
+}
+
+.focus-farm:focus-visible {
+    outline: 2px solid #2d6a4f;
+    outline-offset: 2px;
+}
+
+/* Entrance animations: opacity + transform only, so they stay cheap to render */
+@keyframes anim-fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-fade-down {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-slide-left {
+    from { opacity: 0; transform: translateX(-28px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes anim-slide-right {
+    from { opacity: 0; transform: translateX(28px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.anim-fade-up,
+.anim-fade-down,
+.anim-slide-left,
+.anim-slide-right {
+    animation-duration: 0.55s;
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+    animation-fill-mode: both;
+}
+.anim-fade-up { animation-name: anim-fade-up; }
+.anim-fade-down { animation-name: anim-fade-down; animation-duration: 0.25s; }
+.anim-slide-left { animation-name: anim-slide-left; }
+.anim-slide-right { animation-name: anim-slide-right; }
+
+.anim-delay-1 { animation-delay: 0.08s; }
+.anim-delay-2 { animation-delay: 0.16s; }
+.anim-delay-3 { animation-delay: 0.24s; }
+.anim-delay-4 { animation-delay: 0.32s; }
+
+/* Scroll reveal: toggled by IntersectionObserver in the Reveal component */
+.reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+}
+.reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .anim-fade-up,
+    .anim-fade-down,
+    .anim-slide-left,
+    .anim-slide-right {
+        animation: none;
+    }
+    .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+}
+
+/* Lenis Smooth Scroll Optimization */
+html.lenis, html.lenis body {
+    height: auto;
+}
+.lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+    overflow: hidden;
+}
+.lenis.lenis-smooth iframe {
+    pointer-events: none;
+}
