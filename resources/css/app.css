@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 @import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -8,8 +7,7 @@
 
 @theme {
     --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    
-    /* Earthy Livestock & Farm Palette */
+
     --color-forest-950: #0a1811;
     --color-forest-900: #0f241a;
     --color-forest-800: #1b4332;
@@ -36,87 +34,50 @@ body {
     background-color: var(--color-sand-50);
     color: #1c1917;
     -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
 }
 
-.focus-farm:focus-visible {
-    outline: 2px solid #2d6a4f;
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid #1b4332;
     outline-offset: 2px;
 }
 
-/* Entrance animations: opacity + transform only, so they stay cheap to render */
-@keyframes anim-fade-up {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
+.no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Skips layout and paint work for offscreen catalog cards during fast scrolling */
+.catalog-card-contain {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 430px;
+}
+
 @keyframes anim-fade-down {
-    from { opacity: 0; transform: translateY(-10px); }
+    from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
 }
-@keyframes anim-slide-left {
-    from { opacity: 0; transform: translateX(-28px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-@keyframes anim-slide-right {
-    from { opacity: 0; transform: translateX(28px); }
-    to { opacity: 1; transform: translateX(0); }
-}
 
-.anim-fade-up,
-.anim-fade-down,
-.anim-slide-left,
-.anim-slide-right {
-    animation-duration: 0.55s;
-    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
-    animation-fill-mode: both;
-}
-.anim-fade-up { animation-name: anim-fade-up; }
-.anim-fade-down { animation-name: anim-fade-down; animation-duration: 0.25s; }
-.anim-slide-left { animation-name: anim-slide-left; }
-.anim-slide-right { animation-name: anim-slide-right; }
-
-.anim-delay-1 { animation-delay: 0.08s; }
-.anim-delay-2 { animation-delay: 0.16s; }
-.anim-delay-3 { animation-delay: 0.24s; }
-.anim-delay-4 { animation-delay: 0.32s; }
-
-/* Scroll reveal: toggled by IntersectionObserver in the Reveal component */
-.reveal {
-    opacity: 0;
-    transform: translateY(18px);
-    transition: opacity 0.55s ease-out, transform 0.55s ease-out;
-}
-.reveal.is-visible {
-    opacity: 1;
-    transform: translateY(0);
+.anim-fade-down {
+    animation: anim-fade-down 0.16s ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .anim-fade-up,
-    .anim-fade-down,
-    .anim-slide-left,
-    .anim-slide-right {
+    .anim-fade-down {
         animation: none;
     }
-    .reveal {
-        opacity: 1;
-        transform: none;
-        transition: none;
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
     }
-}
-
-/* Lenis Smooth Scroll Optimization */
-html.lenis, html.lenis body {
-    height: auto;
-}
-.lenis.lenis-smooth {
-    scroll-behavior: auto !important;
-}
-.lenis.lenis-smooth [data-lenis-prevent] {
-    overscroll-behavior: contain;
-}
-.lenis.lenis-stopped {
-    overflow: hidden;
-}
-.lenis.lenis-smooth iframe {
-    pointer-events: none;
 }

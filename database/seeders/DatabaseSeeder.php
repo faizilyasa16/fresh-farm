@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
                 'role' => 'admin',
                 'address' => 'Gedung Agribisnis Lt. 3, Jl. Margonda',
                 'city' => 'Depok',
+                'email_verified_at' => now(),
             ]
         );
 
@@ -38,6 +39,7 @@ class DatabaseSeeder extends Seeder
                 'role' => 'seller',
                 'address' => 'Desa Tanduk, Kec. Ampel, Kaki Gn. Merbabu',
                 'city' => 'Boyolali',
+                'email_verified_at' => now(),
             ]
         );
 
@@ -50,6 +52,7 @@ class DatabaseSeeder extends Seeder
                 'role' => 'seller',
                 'address' => 'Jl. Babakan Tengah No. 22, Cikarawang',
                 'city' => 'Bogor',
+                'email_verified_at' => now(),
             ]
         );
 
@@ -62,6 +65,7 @@ class DatabaseSeeder extends Seeder
                 'role' => 'seller',
                 'address' => 'Kampung Babakan, Tarogong Kidul',
                 'city' => 'Garut',
+                'email_verified_at' => now(),
             ]
         );
 
@@ -74,28 +78,35 @@ class DatabaseSeeder extends Seeder
                 'role' => 'buyer',
                 'address' => 'Jl. Riau No. 45',
                 'city' => 'Bandung',
+                'email_verified_at' => now(),
             ]
         );
+
+        foreach ([$admin, $seller1, $seller2, $seller3, $buyer] as $seededUser) {
+            if ($seededUser->email_verified_at === null) {
+                $seededUser->forceFill(['email_verified_at' => now()])->save();
+            }
+        }
 
         // 2. Seed Categories
         $catSapi = Category::firstOrCreate(
             ['slug' => 'sapi'],
-            ['name' => 'Sapi', 'icon_url' => 'cow']
+            ['name' => 'Sapi', 'icon_url' => 'sapi', 'image_url' => '/images/sapi-limousin.jpg']
         );
 
         $catKambing = Category::firstOrCreate(
             ['slug' => 'kambing'],
-            ['name' => 'Kambing', 'icon_url' => 'goat']
+            ['name' => 'Kambing', 'icon_url' => 'kambing', 'image_url' => '/images/kambing-etawa.jpg']
         );
 
         $catDomba = Category::firstOrCreate(
             ['slug' => 'domba'],
-            ['name' => 'Domba', 'icon_url' => 'sheep']
+            ['name' => 'Domba', 'icon_url' => 'domba', 'image_url' => '/images/domba-garut.jpg']
         );
 
         $catKerbau = Category::firstOrCreate(
             ['slug' => 'kerbau'],
-            ['name' => 'Kerbau', 'icon_url' => 'buffalo']
+            ['name' => 'Kerbau', 'icon_url' => 'kerbau', 'image_url' => '/images/kerbau-murrah.jpg']
         );
 
         // 3. Seed Livestocks
@@ -226,13 +237,15 @@ class DatabaseSeeder extends Seeder
             $imagePath = $item['image'];
             unset($item['image']);
 
-            $livestock = Livestock::create($item);
+            $livestock = Livestock::firstOrCreate(
+                ['title' => $item['title']],
+                $item
+            );
 
-            LivestockImage::create([
-                'livestock_id' => $livestock->id,
-                'image_url' => $imagePath,
-                'is_primary' => true,
-            ]);
+            LivestockImage::firstOrCreate(
+                ['livestock_id' => $livestock->id, 'is_primary' => true],
+                ['image_url' => $imagePath]
+            );
         }
     }
 }

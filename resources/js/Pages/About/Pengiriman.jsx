@@ -22,16 +22,20 @@ export default function Pengiriman() {
             title="Pengiriman"
             intro="Dua pilihan penerimaan hewan. Pilih saat mengisi formulir booking."
         >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 {options.map((option, index) => (
-                    <Reveal key={option.title} delay={index * 100} className="bg-white border border-[#E7E5DF] rounded-xl p-6">
-                        <h2 className="font-bold text-lg text-[#1C1917]">{option.title}</h2>
-                        <p className="text-sm font-semibold text-[#1B4332] mt-1">{option.price}</p>
-                        <p className="text-sm text-[#57534E] mt-3 leading-relaxed">{option.body}</p>
+                    <Reveal
+                        key={option.title}
+                        delay={index * 100}
+                        className="bg-white border border-[#E7E5DF] rounded-xl p-6 lg:p-8"
+                    >
+                        <h2 className="font-bold text-lg lg:text-xl text-[#1C1917]">{option.title}</h2>
+                        <p className="text-sm lg:text-base font-semibold text-[#1B4332] mt-1">{option.price}</p>
+                        <p className="text-sm lg:text-base text-[#57534E] mt-3 leading-relaxed">{option.body}</p>
                     </Reveal>
                 ))}
             </div>
-            <p className="text-sm text-[#57534E] mt-6 max-w-2xl">
+            <p className="text-sm lg:text-base text-[#57534E] mt-6">
                 Peternak mengirim video kondisi terbaru hewan sebelum diberangkatkan.
             </p>
         </AboutShell>

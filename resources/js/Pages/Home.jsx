@@ -1,394 +1,614 @@
-﻿import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import AppLayout from '../Layouts/AppLayout';
-import Reveal from '../Components/Reveal';
+import LivestockCard, { formatRupiah } from '../Components/LivestockCard';
+import {
+    DigitalScaleIcon,
+    EscrowLockIcon,
+    LivestockCategoryIcon,
+    LivestockTruckIcon,
+    VetShieldIcon,
+    getCategoryImageUrl,
+} from '../Components/LivestockIcons';
 
-export default function Home({ featuredLivestocks = [], categories = [], cities = [], stats = {} }) {
-    const formatCurrency = (val) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            maximumFractionDigits: 0,
-        }).format(val);
+function HeroShowcaseCarousel({ items = [] }) {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
+    const [userStoppedAutoPlay, setUserStoppedAutoPlay] = useState(false);
+    const total = items.length;
+
+    const goToNext = useCallback(() => {
+        if (total <= 1) {
+            return;
+        }
+        setActiveIndex((prev) => (prev + 1) % total);
+    }, [total]);
+
+    const goToPrev = useCallback(() => {
+        if (total <= 1) {
+            return;
+        }
+        setActiveIndex((prev) => (prev - 1 + total) % total);
+    }, [total]);
+
+    useEffect(() => {
+        if (total <= 1 || isPaused || userStoppedAutoPlay) {
+            return undefined;
+        }
+
+        if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            return undefined;
+        }
+
+        const timerId = window.setInterval(goToNext, 4200);
+        return () => window.clearInterval(timerId);
+    }, [total, isPaused, userStoppedAutoPlay, goToNext]);
+
+    useEffect(() => {
+        if (total <= 1 || typeof Image === 'undefined') {
+            return;
+        }
+        const nextItem = items[(activeIndex + 1) % total];
+        const nextUrl = nextItem?.images?.[0]?.image_url;
+        if (nextUrl) {
+            const preload = new Image();
+            preload.src = nextUrl;
+        }
+    }, [activeIndex, items, total]);
+
+    if (total === 0) {
+        return (
+            <div className="rounded-2xl bg-white border border-[#D6D3CB] p-8 text-center">
+                <h2 className="text-lg font-bold text-[#1C1917] mb-2">Belum Ada Dokumentasi Ternak</h2>
+                <p className="text-sm text-[#57534E] mb-5">
+                    Data hewan ternak akan tampil otomatis di sini setelah mitra peternak menambahkan stok kandang.
+                </p>
+                <Link
+                    href="/login"
+                    className="min-h-11 inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-[#1B4332] text-white text-sm font-semibold"
+                >
+                    Masuk sebagai Peternak
+                </Link>
+            </div>
+        );
+    }
+
+    const safeIndex = activeIndex % total;
+    const current = items[safeIndex];
+    const imageUrl = current.images?.[0]?.image_url || '/images/hero-farm.jpg';
+
+    return (
+        <div
+            className="rounded-2xl overflow-hidden bg-white border border-[#D6D3CB] shadow-md"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+            onFocusCapture={() => setIsPaused(true)}
+            onBlurCapture={() => setIsPaused(false)}
+            aria-roledescription="carousel"
+            aria-label="Galeri hewan ternak unggulan siap kirim"
+        >
+            <div className="relative aspect-16/11 sm:aspect-16/10 overflow-hidden bg-[#E7E5DF]">
+                <img
+                    key={current.id}
+                    src={imageUrl}
+                    alt={current.title}
+                    width="800"
+                    height="500"
+                    decoding="async"
+                    className="w-full h-full object-cover"
+                />
+
+                <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#1C1917]/85 text-white text-xs font-semibold tabular-nums">
+                        {safeIndex + 1} / {total}
+                    </span>
+                </div>
+
+                {total > 1 && (
+                    <div className="absolute bottom-3.5 right-3.5 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={goToPrev}
+                            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] text-[#1C1917] border border-[#78716C] shadow-xs transition-colors cursor-pointer"
+                            aria-label="Lihat hewan sebelumnya"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={goToNext}
+                            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] text-[#1C1917] border border-[#78716C] shadow-xs transition-colors cursor-pointer"
+                            aria-label="Lihat hewan berikutnya"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className="p-5 sm:p-6 bg-white border-t border-[#E7E5DF]" aria-live="polite">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-[#9A3412]">
+                            {current.category?.name || 'Ternak'} Ras {current.breed}
+                        </span>
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-[#D8F3DC] text-[#1B4332]">
+                            Bebas PMK
+                        </span>
+                    </div>
+                    <span className="text-xs text-[#57534E] font-medium">
+                        Kandang: {current.seller?.city || 'Indonesia'}
+                    </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-3">
+                    <h2 className="text-lg sm:text-xl font-bold text-[#1C1917] leading-snug line-clamp-1">
+                        <Link href={`/livestock/${current.id}`} className="hover:text-[#1B4332] transition-colors">
+                            {current.title}
+                        </Link>
+                    </h2>
+                    <span className="text-base sm:text-lg font-bold text-[#1B4332] shrink-0 tabular-nums">
+                        {formatRupiah(current.price)}
+                    </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs text-[#57534E] pt-3 border-t border-[#E7E5DF]">
+                    <div>
+                        <span className="block text-[11px]">Bobot Riil</span>
+                        <strong className="text-[#1C1917] font-bold tabular-nums">{current.weight_kg} kg</strong>
+                    </div>
+                    <div>
+                        <span className="block text-[11px]">Umur</span>
+                        <strong className="text-[#1C1917] font-bold tabular-nums">{current.age_months} Bulan</strong>
+                    </div>
+                    <div className="text-right">
+                        <span className="block text-[11px]">Status Medis</span>
+                        <strong className="text-[#1B4332] font-bold line-clamp-1">SKKH Aktif</strong>
+                    </div>
+                </div>
+
+                {total > 1 && (
+                    <div className="mt-4 pt-3 border-t border-[#E7E5DF] flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Pilih slide hewan">
+                            {items.map((item, idx) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={idx === safeIndex}
+                                    aria-label={`Tampilkan ${item.title}`}
+                                    onClick={() => setActiveIndex(idx)}
+                                    className="min-w-8 min-h-11 inline-flex items-center justify-center px-1 cursor-pointer"
+                                >
+                                    <span
+                                        className={`block h-2.5 rounded-full transition-all duration-200 ${
+                                            idx === safeIndex
+                                                ? 'w-7 bg-[#1B4332]'
+                                                : 'w-2.5 bg-[#78716C]/60 hover:bg-[#1B4332]/70'
+                                        }`}
+                                    />
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Link
+                                href={`/livestock/${current.id}`}
+                                className="min-h-11 inline-flex items-center px-3.5 py-1.5 rounded-lg bg-[#C2410C] hover:bg-[#9A3412] text-xs font-semibold text-white transition-colors"
+                            >
+                                Lihat Hewan
+                            </Link>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export default function Home({ featuredLivestocks = [], categories = [], stats = {} }) {
+    const { auth } = usePage().props;
+    const currentUser = auth?.user || null;
+
+    const carouselRef = useRef(null);
+    const [canScrollPrev, setCanScrollPrev] = useState(false);
+    const [canScrollNext, setCanScrollNext] = useState(featuredLivestocks.length > 1);
+
+    const categoryCarouselRef = useRef(null);
+    const [canScrollCatPrev, setCanScrollCatPrev] = useState(false);
+    const [canScrollCatNext, setCanScrollCatNext] = useState(categories.length > 2);
+
+    const updateCategoryCarouselButtons = useCallback(() => {
+        const track = categoryCarouselRef.current;
+        if (!track) {
+            return;
+        }
+        const maxScrollLeft = track.scrollWidth - track.clientWidth;
+        setCanScrollCatPrev(track.scrollLeft > 8);
+        setCanScrollCatNext(track.scrollLeft < maxScrollLeft - 8);
+    }, []);
+
+    useEffect(() => {
+        const track = categoryCarouselRef.current;
+        if (!track) {
+            return undefined;
+        }
+        updateCategoryCarouselButtons();
+        track.addEventListener('scroll', updateCategoryCarouselButtons, { passive: true });
+        window.addEventListener('resize', updateCategoryCarouselButtons, { passive: true });
+
+        return () => {
+            track.removeEventListener('scroll', updateCategoryCarouselButtons);
+            window.removeEventListener('resize', updateCategoryCarouselButtons);
+        };
+    }, [updateCategoryCarouselButtons, categories.length]);
+
+    const scrollCategoryBy = (direction) => {
+        const track = categoryCarouselRef.current;
+        if (!track) {
+            return;
+        }
+        const firstCard = track.firstElementChild;
+        const step = firstCard ? firstCard.getBoundingClientRect().width + 16 : track.clientWidth * 0.75;
+        track.scrollBy({
+            left: direction * step,
+            behavior: 'smooth',
+        });
+    };
+
+    const updateCarouselButtons = useCallback(() => {
+        const track = carouselRef.current;
+        if (!track) {
+            return;
+        }
+        const maxScrollLeft = track.scrollWidth - track.clientWidth;
+        setCanScrollPrev(track.scrollLeft > 8);
+        setCanScrollNext(track.scrollLeft < maxScrollLeft - 8);
+    }, []);
+
+    useEffect(() => {
+        const track = carouselRef.current;
+        if (!track) {
+            return undefined;
+        }
+        updateCarouselButtons();
+        track.addEventListener('scroll', updateCarouselButtons, { passive: true });
+        window.addEventListener('resize', updateCarouselButtons, { passive: true });
+
+        return () => {
+            track.removeEventListener('scroll', updateCarouselButtons);
+            window.removeEventListener('resize', updateCarouselButtons);
+        };
+    }, [updateCarouselButtons, featuredLivestocks.length]);
+
+    const scrollCardsBy = (direction) => {
+        const track = carouselRef.current;
+        if (!track) {
+            return;
+        }
+        const firstCard = track.firstElementChild;
+        const step = firstCard ? firstCard.getBoundingClientRect().width + 20 : track.clientWidth * 0.8;
+        track.scrollBy({
+            left: direction * step,
+            behavior: 'smooth',
+        });
     };
 
     return (
         <AppLayout currentRoute="home">
-            <Head title="Marketplace Hewan Ternak Terpercaya Sapi, Kambing, Domba, Kerbau" />
+            <Head title="Pasar Hewan Ternak Langsung dari Peternak Lokal" />
 
-            {/* HERO SECTION - Edge-to-Edge Full Width */}
-            <section className="w-full bg-[#F4F2EC] border-b border-[#E7E5DF] py-10 lg:py-16">
+            <section className="w-full bg-[#F4F2EC] border-b border-[#D6D3CB] py-8 sm:py-12 lg:py-16">
                 <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-                        {/* Left Hero Content */}
-                        <div className="lg:col-span-6 xl:col-span-6 anim-slide-left">
-                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#D8F3DC] text-[#1B4332] text-xs font-semibold uppercase tracking-wider mb-5 border border-[#52B788]/30">
-                                <span className="w-2 h-2 rounded-full bg-[#2D6A4F]"></span>
-                                <span>Platform Ternak Lokal Terverifikasi</span>
-                            </div>
-
-                            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#1C1917] leading-[1.15] mb-5">
-                                Pasar Hewan Ternak Terpercaya Langsung dari <span className="text-[#1B4332] underline decoration-[#52B788]/60">Peternak Lokal</span>
+                        <div className="lg:col-span-6">
+                            <h1 className="text-3xl sm:text-4xl lg:text-[2.65rem] font-bold tracking-tight text-[#1C1917] leading-[1.18] mb-5">
+                                Pasar Hewan Ternak Terpercaya Langsung dari{' '}
+                                <span className="text-[#1B4332] underline decoration-[#2D6A4F]/60">Peternak Lokal</span>
                             </h1>
 
-                            <p className="text-base sm:text-lg text-[#57534E] leading-relaxed mb-8 max-w-2xl font-normal">
-                                Solusi aman dan transparan memilih sapi potong, kambing, domba qurban, dan kerbau. Setiap hewan telah melewati inspeksi dokter hewan, timbangan digital riil, dan bergaransi sampai ke lokasi Anda.
+                            <p className="text-base sm:text-lg text-[#57534E] leading-relaxed mb-7 max-w-2xl">
+                                Pilih sapi, kambing, domba, ayam/unggas, babi, hingga aneka hewan ternak lainnya dengan data bobot timbangan digital, umur riil, serta surat keterangan kesehatan hewan (SKKH) dari kandang mitra.
                             </p>
 
-                            {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-10">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-8">
                                 <Link
                                     href="/katalog"
-                                    className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-base font-semibold shadow-md hover:shadow-lg transition transform active:scale-95"
+                                    className="min-h-11 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-base font-semibold transition-colors"
                                 >
                                     <span>Jelajahi Katalog Ternak</span>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                     </svg>
                                 </Link>
 
-                                <a
-                                    href="https://wa.me/6281234567890?text=Halo%20Fresh%20Farm,%20saya%20ingin%20konsultasi%20pemilihan%20hewan%20kurban/ternak"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-[#FBFBF9] text-[#1C1917] border border-[#E7E5DF] text-base font-medium shadow-xs hover:border-[#1B4332]/40 transition"
-                                >
-                                    <svg className="w-5 h-5 text-[#2D6A4F] fill-current" viewBox="0 0 24 24">
-                                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.288.043.088.072.191.014.307-.058.115-.087.187-.173.289l-.26.305c-.087.101-.177.21-.077.382.101.172.447.737.96 1.194.662.589 1.22.771 1.393.858.173.087.274.072.376-.044.101-.116.433-.505.549-.679.116-.173.231-.145.39-.087s1.011.477 1.184.564c.173.087.289.13.332.203.043.072.043.419-.101.824z"/>
-                                    </svg>
-                                    <span>Konsultasi WhatsApp</span>
-                                </a>
+                                {currentUser ? (
+                                    <Link
+                                        href="/dashboard"
+                                        className="min-h-11 inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-white hover:bg-[#FBFBF9] text-[#1C1917] border border-[#78716C] text-base font-semibold transition-colors"
+                                    >
+                                        Buka Dashboard Saya
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        href="/register"
+                                        className="min-h-11 inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-white hover:bg-[#FBFBF9] text-[#1C1917] border border-[#78716C] text-base font-semibold transition-colors"
+                                    >
+                                        Gabung Mitra Peternak
+                                    </Link>
+                                )}
                             </div>
 
-                            {/* Trust Stats Bar */}
-                            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-[#E7E5DF]">
+                            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-[#D6D3CB]">
                                 <div>
-                                    <div className="text-2xl font-bold text-[#1B4332]">100%</div>
-                                    <div className="text-xs text-[#57534E] font-medium">Bebas PMK & Vaksin</div>
+                                    <div className="text-xl sm:text-2xl font-bold text-[#1B4332] tabular-nums">
+                                        {stats.total_livestock ?? 0} Ekor
+                                    </div>
+                                    <div className="text-xs text-[#57534E] font-medium mt-0.5">Ternak Tersedia</div>
                                 </div>
                                 <div>
-                                    <div className="text-2xl font-bold text-[#1B4332]">
-                                        {stats.total_livestock || '150+'}
+                                    <div className="text-xl sm:text-2xl font-bold text-[#1B4332] tabular-nums">
+                                        {stats.total_sellers ?? 0} Mitra
                                     </div>
-                                    <div className="text-xs text-[#57534E] font-medium">Hewan Siap Kirim</div>
+                                    <div className="text-xs text-[#57534E] font-medium mt-0.5">Kandang Terdaftar</div>
                                 </div>
                                 <div>
-                                    <div className="text-2xl font-bold text-[#1B4332]">
-                                        {stats.total_cities || '3'}+ Kota
+                                    <div className="text-xl sm:text-2xl font-bold text-[#1B4332] tabular-nums">
+                                        {stats.total_cities ?? 0} Kota
                                     </div>
-                                    <div className="text-xs text-[#57534E] font-medium">Sentra Kandang Lokal</div>
+                                    <div className="text-xs text-[#57534E] font-medium mt-0.5">Sentra Peternakan</div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Right Hero Showcase Image (Clean, Professional Dummy Image without 3D animation) */}
-                        <div className="lg:col-span-6 xl:col-span-6 w-full anim-slide-right">
-                            <div className="relative rounded-3xl overflow-hidden bg-white border border-[#E7E5DF] shadow-xl group">
-                                {/* Main Dummy Hero Image */}
-                                <div className="relative aspect-16/11 sm:aspect-16/10 overflow-hidden bg-[#E7E5DF]">
-                                    <img
-                                        src="/images/sapi-limousin.jpg"
-                                        alt="Sapi Limousin Pejantan Boyolali"
-                                        className="w-full h-full object-cover group-hover:scale-102 transition duration-700 ease-out"
-                                    />
-                                    {/* Top Status Tag */}
-                                    <div className="absolute top-4 left-4 z-10">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-xs text-[#1B4332] text-xs font-semibold shadow-xs border border-white/60">
-                                            <span className="w-2 h-2 rounded-full bg-[#2D6A4F]"></span>
-                                            <span>Dokumentasi Fisik Riil Kandang</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Bottom Info Card Overlay (Matching User Reference Image 1) */}
-                                <div className="p-5 sm:p-6 bg-white border-t border-[#E7E5DF]/70">
-                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#C2410C]">
-                                                KUALITAS SUPER GRADE A
-                                            </span>
-                                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#D8F3DC] text-[#1B4332]">
-                                                PMK Sehat
-                                            </span>
-                                        </div>
-                                        <span className="text-xs text-[#57534E] font-medium">
-                                            Kandang: Boyolali, Jawa Tengah
-                                        </span>
-                                    </div>
-                                    <h2 className="text-lg sm:text-xl font-bold text-[#1C1917] mb-2">
-                                        Sapi Limousin Pejantan Boyolali
-                                    </h2>
-                                    <div className="flex items-center justify-between text-xs text-[#57534E] pt-2 border-t border-[#E7E5DF]/60">
-                                        <div>
-                                            <span>Bobot Riil: </span>
-                                            <strong className="text-[#1C1917] font-bold">620 kg</strong>
-                                        </div>
-                                        <div>
-                                            <span>Umur: </span>
-                                            <strong className="text-[#1C1917] font-bold">28 Bln</strong>
-                                        </div>
-                                        <div>
-                                            <span>Vaksinasi: </span>
-                                            <strong className="text-[#2D6A4F] font-bold">Lengkap SKKH</strong>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="hidden md:block lg:col-span-6 w-full">
+                            <HeroShowcaseCarousel items={featuredLivestocks} />
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* CATEGORIES SECTION - Full Width Edge-to-Edge */}
-            <section className="w-full py-12 bg-white border-b border-[#E7E5DF]">
+            <section className="w-full py-10 sm:py-12 bg-white border-b border-[#E7E5DF]">
                 <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8">
+                    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
                         <div>
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#C2410C]">
-                                Pilihan Jenis Hewan
-                            </span>
-                            <h2 className="text-2xl font-bold text-[#1C1917] tracking-tight mt-1">
-                                Kategori Ternak Unggulan
-                            </h2>
-                        </div>
-                        <Link
-                            href="/katalog"
-                            className="text-sm font-semibold text-[#1B4332] hover:underline flex items-center gap-1 mt-2 md:mt-0"
-                        >
-                            <span>Buka Semua di Katalog</span>
-                            <span>&rarr;</span>
-                        </Link>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-                        {categories.map((cat, index) => {
-                            const iconMap = {
-                                sapi: 'ðŸ‚',
-                                kambing: 'ðŸ',
-                                domba: 'ðŸ‘',
-                                kerbau: 'ðŸƒ',
-                            };
-                            return (
-                                <Reveal key={cat.id} delay={index * 70} className="h-full">
-                                <Link
-                                    href={`/katalog?category=${cat.slug}`}
-                                    className="h-full p-5 rounded-2xl bg-[#FBFBF9] hover:bg-[#F4F2EC] border border-[#E7E5DF] hover:border-[#2D6A4F]/40 transition group flex flex-col justify-between"
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <span className="text-3xl">{iconMap[cat.slug] || 'ðŸ¾'}</span>
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#D8F3DC] text-[#1B4332]">
-                                            {cat.livestocks_count || 0} Tersedia
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-lg text-[#1C1917] group-hover:text-[#1B4332] transition">
-                                            {cat.name}
-                                        </h3>
-                                        <p className="text-xs text-[#57534E] line-clamp-1 mt-1">
-                                            {cat.description || 'Pilihan ternak sehat dan berkualitas'}
-                                        </p>
-                                    </div>
-                                </Link>
-                                </Reveal>
-                            );
-                        })}
-                    </div>
-                </div>
-            </section>
-
-            {/* FEATURED LIVESTOCK SHOWCASE - Full Width Edge-to-Edge */}
-            <section className="w-full py-16 bg-[#FBFBF9] border-b border-[#E7E5DF]">
-                <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-10">
-                        <div>
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#C2410C]">
-                                Pilihan Rekomendasi
-                            </span>
-                            <h2 className="text-2xl sm:text-3xl font-bold text-[#1C1917] tracking-tight mt-1">
-                                Hewan Ternak Siap Kirim Hari Ini
+                            <h2 className="text-2xl font-bold text-[#1C1917] tracking-tight">
+                                Filter Cepat Jenis Hewan
                             </h2>
                             <p className="text-sm text-[#57534E] mt-1">
-                                Seluruh ternak sudah melewati verifikasi bobot timbangan hidup dan sertifikasi bebas PMK.
+                                Geser ke samping untuk memilih jenis ternak sesuai kebutuhan peternakan, konsumsi, kurban, aqiqah, atau kuliner.
                             </p>
                         </div>
-                        <div className="mt-4 md:mt-0">
+                        <div className="flex items-center gap-2.5 shrink-0">
+                            {categories.length > 1 && (
+                            <div className="hidden md:flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollCategoryBy(-1)}
+                                        disabled={!canScrollCatPrev}
+                                        className="min-w-10 min-h-10 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
+                                        aria-label="Geser kategori ke kiri"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollCategoryBy(1)}
+                                        disabled={!canScrollCatNext}
+                                        className="min-w-10 min-h-10 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
+                                        aria-label="Geser kategori ke kanan"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
                             <Link
                                 href="/katalog"
-                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white border border-[#E7E5DF] hover:border-[#1B4332] text-sm font-semibold text-[#1B4332] transition"
+                                className="min-h-10 inline-flex items-center text-sm font-semibold text-[#1B4332] hover:underline px-2"
                             >
-                                <span>Lihat Semua ({stats.total_livestock || featuredLivestocks.length} Ternak)</span>
-                                <span>&rarr;</span>
+                                Buka Semua di Katalog
                             </Link>
                         </div>
                     </div>
 
-                    {/* Cards Grid - Full Width Edge-to-Edge */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {featuredLivestocks.map((livestock, index) => {
-                            const primaryImage = livestock.images?.[0]?.image_url || '/images/hero-farm.jpg';
+                    <div
+                        ref={categoryCarouselRef}
+                        className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-4 sm:gap-5 pb-3 no-scrollbar scroll-smooth"
+                        aria-label="Carousel filter jenis hewan ternak"
+                    >
+                        {categories.map((cat) => {
+                            const imgUrl = getCategoryImageUrl(cat);
                             return (
-                                <Reveal key={livestock.id} delay={(index % 4) * 80} className="h-full">
-                                <div
-                                    className="relative h-full bg-white rounded-2xl overflow-hidden border border-[#E7E5DF] hover:border-[#2D6A4F]/60 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col group focus-within:ring-2 focus-within:ring-[#1B4332]"
+                                <Link
+                                    key={cat.id}
+                                    href={`/katalog?category=${cat.slug}`}
+                                    className="shrink-0 snap-start w-56 sm:w-64 p-3.5 sm:p-4 rounded-2xl bg-[#FBFBF9] hover:bg-[#F4F2EC] border border-[#78716C]/40 hover:border-[#1B4332] transition-all hover:shadow-md flex flex-col justify-between group cursor-pointer"
                                 >
-                                    {/* Image Container with Badges */}
-                                    <div className="relative aspect-4/3 overflow-hidden bg-[#F4F2EC]">
-                                        <img
-                                            src={primaryImage}
-                                            alt={livestock.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            loading="lazy"
-                                        />
-                                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                                            <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[#1B4332] text-white">
-                                                {livestock.category?.name || 'Ternak'}
-                                            </span>
-                                            <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[#D8F3DC] text-[#1B4332]">
-                                                Bebas PMK
-                                            </span>
-                                        </div>
-
-                                        <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-xs text-white text-xs px-2.5 py-1 rounded-md font-mono">
-                                            {livestock.weight_kg} kg
-                                        </div>
-                                    </div>
-
-                                    {/* Card Content */}
-                                    <div className="p-5 flex-1 flex flex-col justify-between">
-                                        <div>
-                                            <div className="flex items-center justify-between text-xs text-[#57534E] mb-1.5">
-                                                <span className="font-medium text-[#C2410C]">
-                                                    Ras: {livestock.breed}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <svg className="w-3.5 h-3.5 text-[#57534E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    </svg>
-                                                    <span>{livestock.seller?.city || 'Indonesia'}</span>
-                                                </span>
+                                    <div className="relative aspect-16/10 rounded-xl overflow-hidden mb-3 bg-[#EAE7DF] border border-[#D6D3CB]">
+                                        {imgUrl ? (
+                                            <img
+                                                src={imgUrl}
+                                                alt={cat.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                loading="lazy"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-[#D8F3DC] text-[#1B4332]">
+                                                <LivestockCategoryIcon slug={cat.icon_url || cat.slug} className="w-12 h-12" />
                                             </div>
-
-                                            <h3 className="font-bold text-base text-[#1C1917] group-hover:text-[#1B4332] transition line-clamp-1 mb-2">
-                                                <Link
-                                                    href={`/livestock/${livestock.id}`}
-                                                    className="after:absolute after:inset-0 focus:outline-none"
-                                                >
-                                                    {livestock.title}
-                                                </Link>
+                                        )}
+                                        <span className="absolute top-2.5 right-2.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#1C1917]/85 text-white tabular-nums backdrop-blur-xs">
+                                            {cat.livestocks_count || 0} Ekor
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between gap-1.5 mb-1">
+                                            <h3 className="font-bold text-base text-[#1C1917] group-hover:text-[#1B4332] transition-colors truncate">
+                                                {cat.name}
                                             </h3>
-
-                                            {/* Key Specs */}
-                                            <div className="grid grid-cols-2 gap-2 text-xs text-[#57534E] bg-[#FBFBF9] p-2.5 rounded-lg mb-4 border border-[#E7E5DF]">
-                                                <div>
-                                                    <span className="block text-[11px] text-[#57534E]/80">Jenis Kelamin</span>
-                                                    <strong className="text-[#1C1917] font-medium capitalize">
-                                                        {livestock.gender === 'male' ? 'Jantan' : 'Betina'}
-                                                    </strong>
-                                                </div>
-                                                <div>
-                                                    <span className="block text-[11px] text-[#57534E]/80">Umur Hewan</span>
-                                                    <strong className="text-[#1C1917] font-medium">
-                                                        {livestock.age_months} Bulan
-                                                    </strong>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Bottom Action & Price */}
-                                        <div className="pt-3 border-t border-[#E7E5DF]">
-                                            <div className="flex items-baseline justify-between mb-3">
-                                                <div>
-                                                    <span className="text-[11px] text-[#57534E] block">Harga Peternak</span>
-                                                    <span className="text-lg font-bold text-[#1B4332]">
-                                                        {formatCurrency(livestock.price)}
-                                                    </span>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className="text-[11px] text-[#57534E] block">Estimasi / kg</span>
-                                                    <span className="text-xs font-semibold text-[#57534E]">
-                                                        Rp {Math.round(livestock.price / livestock.weight_kg).toLocaleString('id-ID')}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <Link
-                                                href={`/checkout/${livestock.id}`}
-                                                className="relative z-10 w-full block py-2.5 px-3 text-center rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-xs font-semibold text-white transition shadow-xs"
-                                            >
-                                                Pesan / Booking Ternak &rarr;
-                                            </Link>
+                                            <span className="text-xs text-[#1B4332] font-semibold group-hover:translate-x-0.5 transition-transform">
+                                                &rarr;
+                                            </span>
                                         </div>
                                     </div>
-                                </div>
-                                </Reveal>
+                                </Link>
                             );
                         })}
                     </div>
                 </div>
             </section>
 
-            {/* 4 PILAR JAMINAN FRESH FARM - Full Width Edge-to-Edge */}
-            <section className="w-full py-16 bg-white border-b border-[#E7E5DF]">
+            <section className="w-full py-12 sm:py-16 bg-[#FBFBF9] border-b border-[#E7E5DF]">
                 <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
-                    <div className="text-center max-w-2xl mx-auto mb-12">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#C2410C]">
-                            Standar Transaksi & Kesehatan
-                        </span>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-[#1C1917] tracking-tight mt-1">
-                            Kenapa Memilih Fresh Farm?
+                    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
+                        <div>
+                            <p className="text-xs font-bold text-[#9A3412] mb-1">
+                                Pilihan Rekomendasi
+                            </p>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-[#1C1917] tracking-tight">
+                                Hewan Ternak Siap Kirim Hari Ini
+                            </h2>
+                            <p className="text-sm text-[#57534E] mt-1">
+                                Geser ke samping untuk membandingkan ternak yang sudah melewati timbangan hidup dan pemeriksaan SKKH.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                            {featuredLivestocks.length > 1 && (
+                            <div className="hidden md:flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollCardsBy(-1)}
+                                        disabled={!canScrollPrev}
+                                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
+                                        aria-label="Geser daftar kartu ternak ke kiri"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollCardsBy(1)}
+                                        disabled={!canScrollNext}
+                                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
+                                        aria-label="Geser daftar kartu ternak ke kanan"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
+
+                            <Link
+                                href="/katalog"
+                                className="min-h-11 inline-flex items-center px-5 py-2.5 rounded-xl bg-white hover:bg-[#F4F2EC] border border-[#78716C] text-sm font-semibold text-[#1B4332] transition-colors"
+                            >
+                                Lihat Semua ({stats.total_livestock ?? featuredLivestocks.length} Ternak)
+                            </Link>
+                        </div>
+                    </div>
+
+                    {featuredLivestocks.length > 0 ? (
+                        <div
+                            ref={carouselRef}
+                            className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-5 pb-3 no-scrollbar"
+                            aria-label="Carousel kartu hewan ternak siap kirim"
+                        >
+                            {featuredLivestocks.map((livestock) => (
+                                <div
+                                    key={livestock.id}
+                                    className="shrink-0 snap-start w-[85%] sm:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)] xl:w-[calc(25%-15px)]"
+                                >
+                                    <LivestockCard livestock={livestock} />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl bg-white border border-[#D6D3CB] p-10 text-center max-w-xl mx-auto">
+                            <h3 className="text-lg font-bold text-[#1C1917] mb-1">
+                                Belum Ada Ternak Tersedia Hari Ini
+                            </h3>
+                            <p className="text-sm text-[#57534E] mb-5">
+                                Seluruh stok sedang dipesan atau belum ada listing baru dari mitra peternak.
+                            </p>
+                            <Link
+                                href="/katalog"
+                                className="min-h-11 inline-flex items-center px-5 py-2.5 rounded-xl bg-[#1B4332] text-white text-sm font-semibold"
+                            >
+                                Cek Katalog Lengkap
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            <section className="w-full py-12 sm:py-16 bg-white">
+                <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
+                    <div className="max-w-5xl mb-10">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-[#1C1917] tracking-tight">
+                            Standar Pemeriksaan dan Pengiriman Kandang
                         </h2>
-                        <p className="text-sm text-[#57534E] mt-2">
-                            Kami menstandarisasi tata cara pembelian hewan ternak agar pembeli tenang dan peternak lokal berdaya.
+                        <p className="text-sm sm:text-base text-[#57534E] mt-2">
+                            Setiap transaksi dilengkapi verifikasi fisik sebelum ternak diberangkatkan dari kandang ke lokasi Anda.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#E7E5DF]">
-                            <div className="w-12 h-12 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center text-2xl mb-4 font-bold">
-                                ðŸ©º
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#D6D3CB]">
+                            <div className="w-11 h-11 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center mb-4">
+                                <VetShieldIcon className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-base text-[#1C1917] mb-2">
-                                Bebas PMK & Sertifikasi Medis
+                                Sertifikasi Medis SKKH
                             </h3>
-                            <p className="text-xs text-[#57534E] leading-relaxed">
-                                Setiap ternak wajib memiliki surat keterangan kesehatan hewan (SKKH) dari dinas peternakan dan vaksinasi PMK tervalidasi.
+                            <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
+                                Setiap ternak dilengkapi surat keterangan kesehatan hewan dari dinas terkait serta riwayat vaksinasi PMK.
                             </p>
                         </div>
 
-                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#E7E5DF]">
-                            <div className="w-12 h-12 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center text-2xl mb-4 font-bold">
-                                âš–ï¸
+                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#D6D3CB]">
+                            <div className="w-11 h-11 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center mb-4">
+                                <DigitalScaleIcon className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-base text-[#1C1917] mb-2">
-                                Timbangan Digital Transparan
+                                Timbangan Hidup Digital
                             </h3>
-                            <p className="text-xs text-[#57534E] leading-relaxed">
-                                Tidak ada taksiran sepihak. Bobot ditimbang secara digital dan dapat diverifikasi ulang saat serah terima di kandang.
+                            <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
+                                Bobot dicatat dari hasil timbangan digital kandang dan dapat ditimbang ulang saat serah terima langsung.
                             </p>
                         </div>
 
-                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#E7E5DF]">
-                            <div className="w-12 h-12 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center text-2xl mb-4 font-bold">
-                                ðŸšš
+                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#D6D3CB]">
+                            <div className="w-11 h-11 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center mb-4">
+                                <LivestockTruckIcon className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-base text-[#1C1917] mb-2">
-                                Armada Angkut Khusus Ternak
+                                Armada Angkut Berventilasi
                             </h3>
-                            <p className="text-xs text-[#57534E] leading-relaxed">
-                                Pengiriman dengan bak berventilasi, alas jerami, pakan rumput selama perjalanan, dan pendamping profesional.
+                            <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
+                                Pengiriman menggunakan armada khusus ternak beralas jerami dengan pakan rumput segar selama perjalanan.
                             </p>
                         </div>
 
-                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#E7E5DF]">
-                            <div className="w-12 h-12 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center text-2xl mb-4 font-bold">
-                                ðŸ›¡ï¸
+                        <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#D6D3CB]">
+                            <div className="w-11 h-11 rounded-xl bg-[#D8F3DC] text-[#1B4332] flex items-center justify-center mb-4">
+                                <EscrowLockIcon className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-base text-[#1C1917] mb-2">
-                                Pembayaran Aman & Rekber
+                                Konfirmasi Bukti &amp; Penguncian Stok
                             </h3>
-                            <p className="text-xs text-[#57534E] leading-relaxed">
-                                Dana pembayaran dijamin aman dan hanya diteruskan ke peternak setelah hewan sampai di lokasi pembeli dalam kondisi prima.
+                            <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
+                                Saat dipesan, status hewan otomatis dikunci menjadi Booked sehingga tidak dapat dipesan ganda oleh pembeli lain.
                             </p>
                         </div>
                     </div>

@@ -18,16 +18,16 @@ export default function AboutShell({ routeKey, title, intro, children }) {
         <AppLayout currentRoute={routeKey}>
             <Head title={title} />
 
-            <section className="w-full bg-[#F4F2EC] border-b border-[#E7E5DF]">
+            <section className="w-full bg-[#F4F2EC] border-b border-[#D6D3CB]">
                 <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 pt-10 sm:pt-14">
-                    <div className="anim-slide-left max-w-3xl">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#C2410C]">Tentang Fresh Farm</span>
+                    <div className="max-w-3xl">
+                        <span className="text-xs font-bold text-[#9A3412]">Tentang Fresh Farm</span>
                         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#1C1917] mt-2">{title}</h1>
                         <p className="text-base text-[#57534E] mt-3 leading-relaxed">{intro}</p>
                     </div>
 
                     <nav
-                        className="anim-fade-up anim-delay-2 mt-8 flex gap-1 overflow-x-auto"
+                        className="mt-8 flex gap-1 overflow-x-auto no-scrollbar"
                         aria-label="Bagian Tentang Fresh Farm"
                     >
                         {sections.map((item) => (
@@ -35,7 +35,7 @@ export default function AboutShell({ routeKey, title, intro, children }) {
                                 key={item.key}
                                 href={item.href}
                                 aria-current={routeKey === item.key ? 'page' : undefined}
-                                className={`whitespace-nowrap px-4 py-3 text-sm border-b-2 transition ${
+                                className={`min-h-11 inline-flex items-center whitespace-nowrap px-4 py-2.5 text-sm border-b-2 transition-colors ${
                                     routeKey === item.key
                                         ? 'border-[#1B4332] text-[#1B4332] font-semibold'
                                         : 'border-transparent text-[#57534E] hover:text-[#1B4332]'

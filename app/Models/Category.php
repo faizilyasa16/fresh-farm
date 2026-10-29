@@ -14,6 +14,7 @@ class Category extends Model
         'name',
         'slug',
         'icon_url',
+        'image_url',
     ];
 
     public function livestocks(): HasMany

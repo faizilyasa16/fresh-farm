@@ -56,4 +56,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class, 'seller_id');
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isSeller(): bool
+    {
+        return $this->role === 'seller';
+    }
+
+    public function isBuyer(): bool
+    {
+        return $this->role === 'buyer';
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->email_verified_at !== null;
+    }
 }

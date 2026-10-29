@@ -83,9 +83,12 @@ class MarketplaceTest extends TestCase
 
     public function test_seller_can_view_inventory_dashboard(): void
     {
-        $response = $this->get('/seller/inventory');
+        $seller = User::where('role', 'seller')->firstOrFail();
 
-        $response->assertStatus(200);
+        $response = $this->actingAs($seller)->getJson('/seller/inventory');
+
+        $response->assertStatus(200)
+            ->assertJson(['success' => true]);
     }
 
     public function test_buyer_can_create_order_and_books_livestock(): void
@@ -135,20 +138,22 @@ class MarketplaceTest extends TestCase
             'description' => 'Kambing pedaging gemuk dan sehat.',
         ];
 
-        $response = $this->postJson('/seller/livestock', $data);
+        $response = $this->actingAs($seller)->postJson('/seller/livestock', $data);
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('livestocks', [
             'title' => 'Kambing Boer Asli Pejantan Unggul',
             'breed' => 'Boer Afrika',
+            'seller_id' => $seller->id,
         ]);
     }
 
     public function test_seller_can_update_livestock_status(): void
     {
-        $livestock = Livestock::first();
+        $livestock = Livestock::firstOrFail();
+        $seller = User::findOrFail($livestock->seller_id);
 
-        $response = $this->putJson("/seller/livestock/{$livestock->id}", [
+        $response = $this->actingAs($seller)->putJson("/seller/livestock/{$livestock->id}", [
             'status' => 'sold',
         ]);
 
@@ -158,9 +163,10 @@ class MarketplaceTest extends TestCase
 
     public function test_seller_can_soft_delete_livestock(): void
     {
-        $livestock = Livestock::first();
+        $livestock = Livestock::firstOrFail();
+        $seller = User::findOrFail($livestock->seller_id);
 
-        $response = $this->deleteJson("/seller/livestock/{$livestock->id}");
+        $response = $this->actingAs($seller)->deleteJson("/seller/livestock/{$livestock->id}");
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('livestocks', [

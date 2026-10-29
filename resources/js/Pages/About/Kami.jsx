@@ -10,7 +10,7 @@ export default function Kami() {
             intro="Fresh Farm adalah marketplace hewan ternak yang menghubungkan peternak lokal langsung dengan pembeli kurban, aqiqah, dan usaha peternakan."
         >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-                <div className="lg:col-span-7 space-y-5 text-[#57534E] leading-relaxed anim-fade-up">
+                <div className="lg:col-span-7 space-y-5 text-[#57534E] leading-relaxed">
                     <p>
                         Kami memangkas rantai perantara agar peternak mendapat harga yang layak dan pembeli mendapat hewan dengan bobot, umur, dan status kesehatan yang tercatat jelas sebelum memesan.
                     </p>
