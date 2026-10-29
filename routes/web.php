@@ -32,12 +32,12 @@ Route::middleware('guest')->group(function (): void {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-// Order & Booking Checkout (Accessible to Buyer & Guest)
-Route::get('/checkout/{id}', [OrderController::class, 'checkout'])->name('orders.checkout');
-Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
-
-// Role-Based Dashboard (Admin, Seller, Buyer)
+// Authenticated User Routes (Buyer, Seller, Admin)
 Route::middleware('auth')->group(function (): void {
+    // Order & Booking Checkout (Must be logged in)
+    Route::get('/checkout/{id}', [OrderController::class, 'checkout'])->name('orders.checkout');
+    Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::put('/dashboard/profile', [DashboardController::class, 'updateProfile'])->name('dashboard.profile.update');
     Route::patch('/dashboard/orders/{order}/status', [DashboardController::class, 'updateOrderStatus'])->name('dashboard.orders.status');

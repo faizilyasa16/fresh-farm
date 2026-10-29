@@ -20,7 +20,7 @@ class MarketplaceController extends Controller
         $featuredLivestocks = Livestock::with(['category', 'seller', 'images'])
             ->where('status', 'available')
             ->latest()
-            ->take(8)
+            ->take(12)
             ->get();
 
         $categories = Category::withCount(['livestocks' => function ($q) {
@@ -123,7 +123,12 @@ class MarketplaceController extends Controller
             default => $query->latest(),
         };
 
-        $livestocks = $query->paginate(12)->withQueryString();
+        $perPage = (int) $request->input('per_page', 6);
+        if (! in_array($perPage, [6, 12, 24])) {
+            $perPage = 6;
+        }
+
+        $livestocks = $query->paginate($perPage)->withQueryString();
 
         $categories = Category::withCount(['livestocks' => function ($q) {
             $q->where('status', 'available');
@@ -160,12 +165,17 @@ class MarketplaceController extends Controller
         ]);
     }
 
-    /**
-     * Dedicated Product Detail Page.
-     */
     public function show(int $id): Response|JsonResponse
     {
-        $livestock = Livestock::with(['category', 'seller', 'images'])->findOrFail($id);
+        $livestock = Livestock::with([
+            'category',
+            'seller' => function ($q) {
+                $q->withCount(['livestocks' => function ($lq) {
+                    $lq->where('status', 'available');
+                }]);
+            },
+            'images',
+        ])->findOrFail($id);
 
         $related = Livestock::with(['category', 'seller', 'images'])
             ->where('category_id', $livestock->category_id)

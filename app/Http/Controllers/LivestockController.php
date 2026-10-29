@@ -72,6 +72,10 @@ class LivestockController extends Controller
             'description' => ['nullable', 'string'],
             'image_url' => ['nullable', 'string', 'max:500'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photos' => ['nullable', 'array'],
+            'photos.*' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'image_urls' => ['nullable', 'array'],
+            'image_urls.*' => ['nullable', 'string', 'max:500'],
         ]);
 
         $sellerId = $user->isSeller()
@@ -93,15 +97,39 @@ class LivestockController extends Controller
             'status' => 'available',
         ]);
 
-        $imagePath = null;
+        $createdImages = [];
+
         if ($request->hasFile('photo')) {
             $storedPath = $request->file('photo')->store('livestocks', 'public');
-            $imagePath = '/storage/'.$storedPath;
-        } elseif (! empty($validated['image_url'])) {
-            $imagePath = $validated['image_url'];
-        } else {
+            $createdImages[] = '/storage/'.$storedPath;
+        }
+
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $multiFile) {
+                if ($multiFile) {
+                    $stored = $multiFile->store('livestocks', 'public');
+                    $createdImages[] = '/storage/'.$stored;
+                }
+            }
+        }
+
+        if (! empty($validated['image_url'])) {
+            $createdImages[] = $validated['image_url'];
+        }
+
+        if (! empty($validated['image_urls'])) {
+            foreach ($validated['image_urls'] as $url) {
+                if (! empty($url)) {
+                    $createdImages[] = $url;
+                }
+            }
+        }
+
+        $createdImages = array_values(array_unique(array_filter($createdImages)));
+
+        if (empty($createdImages)) {
             $cat = Category::find($validated['category_id']);
-            $imagePath = match ($cat?->slug) {
+            $createdImages[] = match ($cat?->slug) {
                 'sapi' => '/images/sapi-limousin.jpg',
                 'kambing' => '/images/kambing-etawa.jpg',
                 'domba' => '/images/domba-garut.jpg',
@@ -110,11 +138,13 @@ class LivestockController extends Controller
             };
         }
 
-        LivestockImage::create([
-            'livestock_id' => $livestock->id,
-            'image_url' => $imagePath,
-            'is_primary' => true,
-        ]);
+        foreach ($createdImages as $index => $imgPath) {
+            LivestockImage::create([
+                'livestock_id' => $livestock->id,
+                'image_url' => $imgPath,
+                'is_primary' => $index === 0,
+            ]);
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -159,9 +189,13 @@ class LivestockController extends Controller
             'description' => ['nullable', 'string'],
             'image_url' => ['nullable', 'string', 'max:500'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photos' => ['nullable', 'array'],
+            'photos.*' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'image_urls' => ['nullable', 'array'],
+            'image_urls.*' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $attributes = collect($validated)->except(['photo', 'image_url'])->all();
+        $attributes = collect($validated)->except(['photo', 'photos', 'image_url', 'image_urls'])->all();
 
         if ($livestock->trashed() && isset($attributes['status']) && $attributes['status'] !== 'archived') {
             $livestock->restore();
@@ -193,6 +227,32 @@ class LivestockController extends Controller
                     'image_url' => $newImagePath,
                     'is_primary' => true,
                 ]);
+            }
+        }
+
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $multiFile) {
+                if ($multiFile) {
+                    $stored = $multiFile->store('livestocks', 'public');
+                    LivestockImage::create([
+                        'livestock_id' => $livestock->id,
+                        'image_url' => '/storage/'.$stored,
+                        'is_primary' => false,
+                    ]);
+                }
+            }
+        }
+
+        if (! empty($validated['image_urls'])) {
+            foreach ($validated['image_urls'] as $url) {
+                if (! empty($url)) {
+                    LivestockImage::firstOrCreate([
+                        'livestock_id' => $livestock->id,
+                        'image_url' => $url,
+                    ], [
+                        'is_primary' => false,
+                    ]);
+                }
             }
         }
 

@@ -184,7 +184,7 @@ class DatabaseSeeder extends Seeder
                 'health_status' => 'Kondisi Prima, Bebas Cacing & Jamur',
                 'description' => 'Kambing sehat lincah, tanduk utuh, ekor normal, memenuhi syarat sah syariat aqiqah dan kurban. Tersedia layanan titip potong atau diantar hidup ke alamat.',
                 'status' => 'available',
-                'image' => '/images/kambing-etawa.jpg',
+                'image' => '/images/kambing-jawa-randu.jpg',
             ],
             [
                 'seller_id' => $seller3->id,
@@ -214,7 +214,7 @@ class DatabaseSeeder extends Seeder
                 'health_status' => 'Sehat Bebas Cacat, Vaksinasi Lengkap',
                 'description' => 'Domba jenis Texel dengan persentase karkas daging tinggi hingga 52%. Punggung lebar padat, tulang kecil, sangat disukai juragan sate dan katering aqiqah.',
                 'status' => 'available',
-                'image' => '/images/domba-garut.jpg',
+                'image' => '/images/domba-texel.jpg',
             ],
             [
                 'seller_id' => $seller1->id,
@@ -242,10 +242,25 @@ class DatabaseSeeder extends Seeder
                 $item
             );
 
-            LivestockImage::firstOrCreate(
-                ['livestock_id' => $livestock->id, 'is_primary' => true],
-                ['image_url' => $imagePath]
-            );
+            $baseName = pathinfo($imagePath, PATHINFO_FILENAME);
+            $multiImages = [$imagePath];
+            if (file_exists(public_path("images/{$baseName}-detail.jpg"))) {
+                $multiImages[] = "/images/{$baseName}-detail.jpg";
+            } elseif (file_exists(public_path("images/{$baseName}-head.jpg"))) {
+                $multiImages[] = "/images/{$baseName}-head.jpg";
+            }
+            if (file_exists(public_path("images/{$baseName}-posture.jpg"))) {
+                $multiImages[] = "/images/{$baseName}-posture.jpg";
+            } elseif (file_exists(public_path("images/{$baseName}-body.jpg"))) {
+                $multiImages[] = "/images/{$baseName}-body.jpg";
+            }
+
+            foreach ($multiImages as $index => $imgUrl) {
+                LivestockImage::firstOrCreate(
+                    ['livestock_id' => $livestock->id, 'image_url' => $imgUrl],
+                    ['is_primary' => $index === 0]
+                );
+            }
         }
     }
 }

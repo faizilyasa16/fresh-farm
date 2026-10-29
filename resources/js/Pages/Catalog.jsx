@@ -520,33 +520,74 @@ export default function Catalog({
                                     ))}
                                 </div>
 
-                                {livestocks.links &&
-                                    livestocks.links.length > 3 && (
-                                        <nav
-                                            className="mt-10 flex items-center justify-center gap-1.5 flex-wrap"
-                                            aria-label="Navigasi halaman katalog"
-                                        >
-                                            {livestocks.links.map(
-                                                (link, idx) => (
-                                                    <Link
-                                                        key={idx}
-                                                        href={link.url || "#"}
-                                                        preserveScroll
-                                                        dangerouslySetInnerHTML={{
-                                                            __html: link.label,
-                                                        }}
-                                                        className={`min-h-11 inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                                                            link.active
-                                                                ? "bg-[#1B4332] text-white"
-                                                                : link.url
-                                                                  ? "bg-white border border-[#78716C] text-[#1C1917] hover:bg-[#F4F2EC]"
-                                                                  : "text-[#78716C] border border-[#E7E5DF] pointer-events-none opacity-60"
-                                                        }`}
-                                                    />
-                                                ),
-                                            )}
-                                        </nav>
-                                    )}
+                                {livestocks.total > 0 && (
+                                    <div className="mt-10 pt-6 border-t border-[#E7E5DF] flex flex-col sm:flex-row items-center justify-between gap-4">
+                                        <p className="text-xs sm:text-sm text-[#57534E]">
+                                            Menampilkan <span className="font-semibold text-[#1C1917]">{livestocks.from || 0}</span>–<span className="font-semibold text-[#1C1917]">{livestocks.to || 0}</span> dari <span className="font-semibold text-[#1C1917]">{livestocks.total || 0}</span> ternak
+                                        </p>
+
+                                        {livestocks.links && livestocks.links.length > 3 ? (
+                                            <nav className="flex items-center gap-1.5 flex-wrap" aria-label="Navigasi halaman katalog">
+                                                {livestocks.links.map((link, idx) => {
+                                                    const isPrev = idx === 0;
+                                                    const isNext = idx === livestocks.links.length - 1;
+
+                                                    let labelContent = link.label;
+                                                    if (isPrev) {
+                                                        labelContent = (
+                                                            <span className="flex items-center gap-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                                                                </svg>
+                                                                <span className="hidden sm:inline">Sebelumnya</span>
+                                                            </span>
+                                                        );
+                                                    } else if (isNext) {
+                                                        labelContent = (
+                                                            <span className="flex items-center gap-1">
+                                                                <span className="hidden sm:inline">Berikutnya</span>
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                                                                </svg>
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    if (!link.url) {
+                                                        return (
+                                                            <span
+                                                                key={idx}
+                                                                className="min-h-10 min-w-10 px-3 py-2 rounded-xl text-xs font-medium text-[#A8A29E] bg-[#F4F2EC]/60 border border-[#E7E5DF] flex items-center justify-center cursor-not-allowed select-none"
+                                                                aria-disabled="true"
+                                                            >
+                                                                {labelContent}
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Link
+                                                            key={idx}
+                                                            href={link.url}
+                                                            preserveScroll
+                                                            className={`min-h-10 min-w-10 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center transition-all ${
+                                                                link.active
+                                                                    ? "bg-[#1B4332] text-white shadow-xs"
+                                                                    : "bg-white border border-[#D6D3CB] text-[#1C1917] hover:bg-[#F4F2EC] hover:border-[#78716C]"
+                                                            }`}
+                                                        >
+                                                            {labelContent}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </nav>
+                                        ) : (
+                                            <div className="text-xs text-[#78716C] bg-white border border-[#E7E5DF] px-3.5 py-1.5 rounded-xl font-medium">
+                                                Halaman 1 dari 1
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <div className="bg-white rounded-2xl p-10 sm:p-12 text-center border border-[#D6D3CB] max-w-lg mx-auto">

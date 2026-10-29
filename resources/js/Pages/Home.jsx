@@ -1,20 +1,169 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Head, Link, usePage } from '@inertiajs/react';
 import AppLayout from '../Layouts/AppLayout';
 import LivestockCard, { formatRupiah } from '../Components/LivestockCard';
 import {
     DigitalScaleIcon,
     EscrowLockIcon,
-    LivestockCategoryIcon,
     LivestockTruckIcon,
     VetShieldIcon,
-    getCategoryImageUrl,
 } from '../Components/LivestockIcons';
+
+function useDragScroll() {
+    const ref = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const stateRef = useRef({
+        isDown: false,
+        startX: 0,
+        scrollLeft: 0,
+        hasMoved: false,
+        animId: null,
+        history: [],
+    });
+
+    const stopMomentum = useCallback(() => {
+        if (stateRef.current.animId) {
+            cancelAnimationFrame(stateRef.current.animId);
+            stateRef.current.animId = null;
+        }
+    }, []);
+
+    const onMouseDown = useCallback((e) => {
+        // Only respond to left mouse button
+        if (e.button !== 0) {
+            return;
+        }
+        const container = ref.current;
+        if (!container) {
+            return;
+        }
+
+        stopMomentum();
+
+        stateRef.current.isDown = true;
+        stateRef.current.startX = e.clientX;
+        stateRef.current.scrollLeft = container.scrollLeft;
+        stateRef.current.hasMoved = false;
+        stateRef.current.history = [{ x: e.clientX, t: performance.now() }];
+        setIsDragging(true);
+
+        const onMouseMove = (moveEvent) => {
+            if (!stateRef.current.isDown) {
+                return;
+            }
+            const currentContainer = ref.current;
+            if (!currentContainer) {
+                return;
+            }
+
+            const deltaX = moveEvent.clientX - stateRef.current.startX;
+            if (Math.abs(deltaX) > 4) {
+                stateRef.current.hasMoved = true;
+            }
+
+            // Direct 1:1 scroll without lag or multiplier
+            currentContainer.scrollLeft = stateRef.current.scrollLeft - deltaX;
+
+            const now = performance.now();
+            stateRef.current.history.push({ x: moveEvent.clientX, t: now });
+            // Only keep points from last 90ms for accurate release velocity
+            stateRef.current.history = stateRef.current.history.filter((p) => now - p.t < 90);
+        };
+
+        const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+
+            if (!stateRef.current.isDown) {
+                return;
+            }
+            stateRef.current.isDown = false;
+            setIsDragging(false);
+
+            const currentContainer = ref.current;
+            if (!currentContainer) {
+                return;
+            }
+
+            // Calculate flick momentum velocity
+            const history = stateRef.current.history;
+            if (history.length >= 2) {
+                const oldest = history[0];
+                const newest = history[history.length - 1];
+                const dt = newest.t - oldest.t;
+                if (dt > 10) {
+                    const vx = (newest.x - oldest.x) / dt; // px per ms
+                    if (Math.abs(vx) > 0.15) {
+                        let stepVelocity = -vx * 16; // px per frame
+                        if (stepVelocity > 35) stepVelocity = 35;
+                        if (stepVelocity < -35) stepVelocity = -35;
+                        const friction = 0.94;
+
+                        const momentumStep = () => {
+                            if (!ref.current || Math.abs(stepVelocity) < 0.25) {
+                                stateRef.current.animId = null;
+                                return;
+                            }
+                            ref.current.scrollLeft += stepVelocity;
+                            stepVelocity *= friction;
+                            stateRef.current.animId = requestAnimationFrame(momentumStep);
+                        };
+
+                        stateRef.current.animId = requestAnimationFrame(momentumStep);
+                    }
+                }
+            }
+
+            if (stateRef.current.hasMoved) {
+                setTimeout(() => {
+                    stateRef.current.hasMoved = false;
+                }, 50);
+            }
+        };
+
+        window.addEventListener('mousemove', onMouseMove, { passive: true });
+        window.addEventListener('mouseup', onMouseUp);
+    }, [stopMomentum]);
+
+    const onClickCapture = useCallback((e) => {
+        if (stateRef.current.hasMoved) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, []);
+
+    const scrollByAmount = useCallback((direction) => {
+        const container = ref.current;
+        if (!container) {
+            return;
+        }
+        stopMomentum();
+        const cardStep = Math.max(280, Math.round(container.clientWidth * 0.72));
+        container.scrollBy({ left: direction * cardStep, behavior: 'smooth' });
+    }, [stopMomentum]);
+
+    useEffect(() => {
+        return () => {
+            stopMomentum();
+        };
+    }, [stopMomentum]);
+
+    return {
+        ref,
+        isDragging,
+        scrollByAmount,
+        events: {
+            onMouseDown,
+            onClickCapture,
+            onDragStart: (e) => e.preventDefault(),
+        },
+    };
+}
 
 function HeroShowcaseCarousel({ items = [] }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
-    const [userStoppedAutoPlay, setUserStoppedAutoPlay] = useState(false);
+    const touchStartX = useRef(0);
     const total = items.length;
 
     const goToNext = useCallback(() => {
@@ -32,7 +181,7 @@ function HeroShowcaseCarousel({ items = [] }) {
     }, [total]);
 
     useEffect(() => {
-        if (total <= 1 || isPaused || userStoppedAutoPlay) {
+        if (total <= 1 || isPaused) {
             return undefined;
         }
 
@@ -40,9 +189,9 @@ function HeroShowcaseCarousel({ items = [] }) {
             return undefined;
         }
 
-        const timerId = window.setInterval(goToNext, 4200);
+        const timerId = window.setInterval(goToNext, 3800);
         return () => window.clearInterval(timerId);
-    }, [total, isPaused, userStoppedAutoPlay, goToNext]);
+    }, [total, isPaused, goToNext]);
 
     useEffect(() => {
         if (total <= 1 || typeof Image === 'undefined') {
@@ -58,154 +207,120 @@ function HeroShowcaseCarousel({ items = [] }) {
 
     if (total === 0) {
         return (
-            <div className="rounded-2xl bg-white border border-[#D6D3CB] p-8 text-center">
-                <h2 className="text-lg font-bold text-[#1C1917] mb-2">Belum Ada Dokumentasi Ternak</h2>
-                <p className="text-sm text-[#57534E] mb-5">
-                    Data hewan ternak akan tampil otomatis di sini setelah mitra peternak menambahkan stok kandang.
-                </p>
-                <Link
-                    href="/login"
-                    className="min-h-11 inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-[#1B4332] text-white text-sm font-semibold"
-                >
-                    Masuk sebagai Peternak
-                </Link>
+            <div className="relative aspect-16/10 rounded-3xl overflow-hidden bg-[#E7E5DF] border border-[#D6D3CB] flex items-center justify-center p-8 text-center shadow-lg">
+                <img
+                    src="/images/hero-farm.jpg"
+                    alt="Fresh Farm Hero"
+                    className="w-full h-full object-cover"
+                />
             </div>
         );
     }
 
     const safeIndex = activeIndex % total;
-    const current = items[safeIndex];
-    const imageUrl = current.images?.[0]?.image_url || '/images/hero-farm.jpg';
+
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX.current - touchEndX;
+        if (diff > 50) {
+            goToNext();
+        } else if (diff < -50) {
+            goToPrev();
+        }
+    };
 
     return (
         <div
-            className="rounded-2xl overflow-hidden bg-white border border-[#D6D3CB] shadow-md"
+            className="relative w-full aspect-16/10 sm:aspect-16/10 lg:aspect-4/3 rounded-3xl overflow-hidden shadow-xl border border-[#D6D3CB]/70 bg-[#1C1917] select-none group"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
-            onFocusCapture={() => setIsPaused(true)}
-            onBlurCapture={() => setIsPaused(false)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
             aria-roledescription="carousel"
-            aria-label="Galeri hewan ternak unggulan siap kirim"
+            aria-label="Image auto carousel hewan ternak siap kirim"
         >
-            <div className="relative aspect-16/11 sm:aspect-16/10 overflow-hidden bg-[#E7E5DF]">
-                <img
-                    key={current.id}
-                    src={imageUrl}
-                    alt={current.title}
-                    width="800"
-                    height="500"
-                    decoding="async"
-                    className="w-full h-full object-cover"
-                />
+            {/* Smooth fading / sliding images */}
+            {items.map((item, idx) => {
+                const itemImg = item.images?.[0]?.image_url || '/images/hero-farm.jpg';
+                const isActive = idx === safeIndex;
+                return (
+                    <div
+                        key={item.id}
+                        className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                            isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                        }`}
+                        aria-hidden={!isActive}
+                    >
+                        <Link href={`/livestock/${item.id}`} className="block w-full h-full relative cursor-pointer">
+                            <img
+                                src={itemImg}
+                                alt={item.title}
+                                width="800"
+                                height="600"
+                                decoding="async"
+                                draggable={false}
+                                className="w-full h-full object-cover select-none pointer-events-none transition-transform duration-700 group-hover:scale-105"
+                            />
 
-                <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#1C1917]/85 text-white text-xs font-semibold tabular-nums">
-                        {safeIndex + 1} / {total}
-                    </span>
-                </div>
+                            {/* Gradient overlay for contrast */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/35 pointer-events-none" />
 
-                {total > 1 && (
-                    <div className="absolute bottom-3.5 right-3.5 flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={goToPrev}
-                            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] text-[#1C1917] border border-[#78716C] shadow-xs transition-colors cursor-pointer"
-                            aria-label="Lihat hewan sebelumnya"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={goToNext}
-                            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] text-[#1C1917] border border-[#78716C] shadow-xs transition-colors cursor-pointer"
-                            aria-label="Lihat hewan berikutnya"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-            </div>
+                            {/* Top right location badge */}
+                            <div className="absolute top-4 right-4 flex items-center gap-1.5 text-xs sm:text-sm text-white font-medium bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-sm pointer-events-none">
+                                <svg className="w-3.5 h-3.5 text-[#95D5B2] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span>{item.seller?.city || 'Indonesia'}</span>
+                            </div>
 
-            <div className="p-5 sm:p-6 bg-white border-t border-[#E7E5DF]" aria-live="polite">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-[#9A3412]">
-                            {current.category?.name || 'Ternak'} Ras {current.breed}
-                        </span>
-                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-[#D8F3DC] text-[#1B4332]">
-                            Bebas PMK
-                        </span>
-                    </div>
-                    <span className="text-xs text-[#57534E] font-medium">
-                        Kandang: {current.seller?.city || 'Indonesia'}
-                    </span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-3">
-                    <h2 className="text-lg sm:text-xl font-bold text-[#1C1917] leading-snug line-clamp-1">
-                        <Link href={`/livestock/${current.id}`} className="hover:text-[#1B4332] transition-colors">
-                            {current.title}
+                            {/* Floating info overlay at the bottom */}
+                            <div className="absolute bottom-8 sm:bottom-7 left-5 right-5 text-white pointer-events-none">
+                                <h2 className="text-lg sm:text-2xl font-bold text-white drop-shadow-md truncate leading-snug">
+                                    {item.title}
+                                </h2>
+                                <div className="text-base sm:text-xl font-bold text-[#95D5B2] drop-shadow-md tabular-nums mt-0.5">
+                                    {formatRupiah(item.price)}
+                                </div>
+                            </div>
                         </Link>
-                    </h2>
-                    <span className="text-base sm:text-lg font-bold text-[#1B4332] shrink-0 tabular-nums">
-                        {formatRupiah(current.price)}
-                    </span>
-                </div>
+                    </div>
+                );
+            })}
 
-                <div className="grid grid-cols-3 gap-2 text-xs text-[#57534E] pt-3 border-t border-[#E7E5DF]">
-                    <div>
-                        <span className="block text-[11px]">Bobot Riil</span>
-                        <strong className="text-[#1C1917] font-bold tabular-nums">{current.weight_kg} kg</strong>
-                    </div>
-                    <div>
-                        <span className="block text-[11px]">Umur</span>
-                        <strong className="text-[#1C1917] font-bold tabular-nums">{current.age_months} Bulan</strong>
-                    </div>
-                    <div className="text-right">
-                        <span className="block text-[11px]">Status Medis</span>
-                        <strong className="text-[#1B4332] font-bold line-clamp-1">SKKH Aktif</strong>
-                    </div>
-                </div>
-
-                {total > 1 && (
-                    <div className="mt-4 pt-3 border-t border-[#E7E5DF] flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Pilih slide hewan">
-                            {items.map((item, idx) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={idx === safeIndex}
-                                    aria-label={`Tampilkan ${item.title}`}
-                                    onClick={() => setActiveIndex(idx)}
-                                    className="min-w-8 min-h-11 inline-flex items-center justify-center px-1 cursor-pointer"
-                                >
-                                    <span
-                                        className={`block h-2.5 rounded-full transition-all duration-200 ${
-                                            idx === safeIndex
-                                                ? 'w-7 bg-[#1B4332]'
-                                                : 'w-2.5 bg-[#78716C]/60 hover:bg-[#1B4332]/70'
-                                        }`}
-                                    />
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                            <Link
-                                href={`/livestock/${current.id}`}
-                                className="min-h-11 inline-flex items-center px-3.5 py-1.5 rounded-lg bg-[#C2410C] hover:bg-[#9A3412] text-xs font-semibold text-white transition-colors"
-                            >
-                                Lihat Hewan
-                            </Link>
-                        </div>
-                    </div>
-                )}
+            {/* Top counter badge */}
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-semibold tabular-nums border border-white/10 shadow-sm">
+                    {safeIndex + 1} / {total}
+                </span>
             </div>
+
+            {/* Bottom dots navigation */}
+            {total > 1 && (
+                <div className="absolute bottom-2.5 left-0 right-0 z-20 flex items-center justify-center gap-1.5 pb-1">
+                    {items.map((_, idx) => (
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveIndex(idx)}
+                            aria-label={`Ke slide ${idx + 1}`}
+                            className="min-w-6 min-h-6 inline-flex items-center justify-center cursor-pointer p-1"
+                        >
+                            <span
+                                className={`block h-1.5 rounded-full transition-all duration-300 ${
+                                    idx === safeIndex
+                                        ? 'w-7 bg-white shadow-xs'
+                                        : 'w-2 bg-white/45 hover:bg-white/80'
+                                }`}
+                            />
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -214,89 +329,7 @@ export default function Home({ featuredLivestocks = [], categories = [], stats =
     const { auth } = usePage().props;
     const currentUser = auth?.user || null;
 
-    const carouselRef = useRef(null);
-    const [canScrollPrev, setCanScrollPrev] = useState(false);
-    const [canScrollNext, setCanScrollNext] = useState(featuredLivestocks.length > 1);
-
-    const categoryCarouselRef = useRef(null);
-    const [canScrollCatPrev, setCanScrollCatPrev] = useState(false);
-    const [canScrollCatNext, setCanScrollCatNext] = useState(categories.length > 2);
-
-    const updateCategoryCarouselButtons = useCallback(() => {
-        const track = categoryCarouselRef.current;
-        if (!track) {
-            return;
-        }
-        const maxScrollLeft = track.scrollWidth - track.clientWidth;
-        setCanScrollCatPrev(track.scrollLeft > 8);
-        setCanScrollCatNext(track.scrollLeft < maxScrollLeft - 8);
-    }, []);
-
-    useEffect(() => {
-        const track = categoryCarouselRef.current;
-        if (!track) {
-            return undefined;
-        }
-        updateCategoryCarouselButtons();
-        track.addEventListener('scroll', updateCategoryCarouselButtons, { passive: true });
-        window.addEventListener('resize', updateCategoryCarouselButtons, { passive: true });
-
-        return () => {
-            track.removeEventListener('scroll', updateCategoryCarouselButtons);
-            window.removeEventListener('resize', updateCategoryCarouselButtons);
-        };
-    }, [updateCategoryCarouselButtons, categories.length]);
-
-    const scrollCategoryBy = (direction) => {
-        const track = categoryCarouselRef.current;
-        if (!track) {
-            return;
-        }
-        const firstCard = track.firstElementChild;
-        const step = firstCard ? firstCard.getBoundingClientRect().width + 16 : track.clientWidth * 0.75;
-        track.scrollBy({
-            left: direction * step,
-            behavior: 'smooth',
-        });
-    };
-
-    const updateCarouselButtons = useCallback(() => {
-        const track = carouselRef.current;
-        if (!track) {
-            return;
-        }
-        const maxScrollLeft = track.scrollWidth - track.clientWidth;
-        setCanScrollPrev(track.scrollLeft > 8);
-        setCanScrollNext(track.scrollLeft < maxScrollLeft - 8);
-    }, []);
-
-    useEffect(() => {
-        const track = carouselRef.current;
-        if (!track) {
-            return undefined;
-        }
-        updateCarouselButtons();
-        track.addEventListener('scroll', updateCarouselButtons, { passive: true });
-        window.addEventListener('resize', updateCarouselButtons, { passive: true });
-
-        return () => {
-            track.removeEventListener('scroll', updateCarouselButtons);
-            window.removeEventListener('resize', updateCarouselButtons);
-        };
-    }, [updateCarouselButtons, featuredLivestocks.length]);
-
-    const scrollCardsBy = (direction) => {
-        const track = carouselRef.current;
-        if (!track) {
-            return;
-        }
-        const firstCard = track.firstElementChild;
-        const step = firstCard ? firstCard.getBoundingClientRect().width + 20 : track.clientWidth * 0.8;
-        track.scrollBy({
-            left: direction * step,
-            behavior: 'smooth',
-        });
-    };
+    const livestockDrag = useDragScroll();
 
     return (
         <AppLayout currentRoute="home">
@@ -372,99 +405,7 @@ export default function Home({ featuredLivestocks = [], categories = [], stats =
                 </div>
             </section>
 
-            <section className="w-full py-10 sm:py-12 bg-white border-b border-[#E7E5DF]">
-                <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
-                    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
-                        <div>
-                            <h2 className="text-2xl font-bold text-[#1C1917] tracking-tight">
-                                Filter Cepat Jenis Hewan
-                            </h2>
-                            <p className="text-sm text-[#57534E] mt-1">
-                                Geser ke samping untuk memilih jenis ternak sesuai kebutuhan peternakan, konsumsi, kurban, aqiqah, atau kuliner.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2.5 shrink-0">
-                            {categories.length > 1 && (
-                            <div className="hidden md:flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => scrollCategoryBy(-1)}
-                                        disabled={!canScrollCatPrev}
-                                        className="min-w-10 min-h-10 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
-                                        aria-label="Geser kategori ke kiri"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => scrollCategoryBy(1)}
-                                        disabled={!canScrollCatNext}
-                                        className="min-w-10 min-h-10 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
-                                        aria-label="Geser kategori ke kanan"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            )}
-                            <Link
-                                href="/katalog"
-                                className="min-h-10 inline-flex items-center text-sm font-semibold text-[#1B4332] hover:underline px-2"
-                            >
-                                Buka Semua di Katalog
-                            </Link>
-                        </div>
-                    </div>
 
-                    <div
-                        ref={categoryCarouselRef}
-                        className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-4 sm:gap-5 pb-3 no-scrollbar scroll-smooth"
-                        aria-label="Carousel filter jenis hewan ternak"
-                    >
-                        {categories.map((cat) => {
-                            const imgUrl = getCategoryImageUrl(cat);
-                            return (
-                                <Link
-                                    key={cat.id}
-                                    href={`/katalog?category=${cat.slug}`}
-                                    className="shrink-0 snap-start w-56 sm:w-64 p-3.5 sm:p-4 rounded-2xl bg-[#FBFBF9] hover:bg-[#F4F2EC] border border-[#78716C]/40 hover:border-[#1B4332] transition-all hover:shadow-md flex flex-col justify-between group cursor-pointer"
-                                >
-                                    <div className="relative aspect-16/10 rounded-xl overflow-hidden mb-3 bg-[#EAE7DF] border border-[#D6D3CB]">
-                                        {imgUrl ? (
-                                            <img
-                                                src={imgUrl}
-                                                alt={cat.name}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                                loading="lazy"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-[#D8F3DC] text-[#1B4332]">
-                                                <LivestockCategoryIcon slug={cat.icon_url || cat.slug} className="w-12 h-12" />
-                                            </div>
-                                        )}
-                                        <span className="absolute top-2.5 right-2.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#1C1917]/85 text-white tabular-nums backdrop-blur-xs">
-                                            {cat.livestocks_count || 0} Ekor
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center justify-between gap-1.5 mb-1">
-                                            <h3 className="font-bold text-base text-[#1C1917] group-hover:text-[#1B4332] transition-colors truncate">
-                                                {cat.name}
-                                            </h3>
-                                            <span className="text-xs text-[#1B4332] font-semibold group-hover:translate-x-0.5 transition-transform">
-                                                &rarr;
-                                            </span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                </div>
-            </section>
 
             <section className="w-full py-12 sm:py-16 bg-[#FBFBF9] border-b border-[#E7E5DF]">
                 <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
@@ -477,57 +418,32 @@ export default function Home({ featuredLivestocks = [], categories = [], stats =
                                 Hewan Ternak Siap Kirim Hari Ini
                             </h2>
                             <p className="text-sm text-[#57534E] mt-1">
-                                Geser ke samping untuk membandingkan ternak yang sudah melewati timbangan hidup dan pemeriksaan SKKH.
+                                Tarik atau geser ke samping untuk membandingkan ternak yang sudah melewati timbangan hidup dan pemeriksaan SKKH.
                             </p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                            {featuredLivestocks.length > 1 && (
-                            <div className="hidden md:flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => scrollCardsBy(-1)}
-                                        disabled={!canScrollPrev}
-                                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
-                                        aria-label="Geser daftar kartu ternak ke kiri"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => scrollCardsBy(1)}
-                                        disabled={!canScrollNext}
-                                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-[#F4F2EC] disabled:opacity-40 disabled:pointer-events-none border border-[#78716C] text-[#1C1917] transition-colors cursor-pointer"
-                                        aria-label="Geser daftar kartu ternak ke kanan"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            )}
-
                             <Link
                                 href="/katalog"
                                 className="min-h-11 inline-flex items-center px-5 py-2.5 rounded-xl bg-white hover:bg-[#F4F2EC] border border-[#78716C] text-sm font-semibold text-[#1B4332] transition-colors"
                             >
-                                Lihat Semua ({stats.total_livestock ?? featuredLivestocks.length} Ternak)
+                                Lihat Semua ({stats.total_livestock ?? featuredLivestocks.length} Ternak) &rarr;
                             </Link>
                         </div>
                     </div>
 
                     {featuredLivestocks.length > 0 ? (
                         <div
-                            ref={carouselRef}
-                            className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-5 pb-3 no-scrollbar"
-                            aria-label="Carousel kartu hewan ternak siap kirim"
+                            ref={livestockDrag.ref}
+                            {...livestockDrag.events}
+                            className="flex flex-nowrap overflow-x-auto gap-5 pb-3 no-scrollbar select-none cursor-grab active:cursor-grabbing touch-pan-x overscroll-x-contain"
+                            style={{ WebkitOverflowScrolling: 'touch' }}
+                            aria-label="Daftar rekomendasi kartu hewan ternak geser dan drag"
                         >
                             {featuredLivestocks.map((livestock) => (
                                 <div
                                     key={livestock.id}
-                                    className="shrink-0 snap-start w-[85%] sm:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)] xl:w-[calc(25%-15px)]"
+                                    className="shrink-0 w-[85%] sm:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)] xl:w-[calc(25%-15px)] select-none"
                                 >
                                     <LivestockCard livestock={livestock} />
                                 </div>

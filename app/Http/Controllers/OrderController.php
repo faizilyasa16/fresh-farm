@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Livestock;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,9 +17,14 @@ class OrderController extends Controller
     /**
      * Dedicated Checkout / Order Page.
      */
-    public function checkout(int $id): Response
+    public function checkout(Request $request, int $id): Response|RedirectResponse
     {
         $livestock = Livestock::with(['seller', 'category', 'images'])->findOrFail($id);
+
+        if ($request->user() && $livestock->seller_id === $request->user()->id) {
+            return redirect()->route('marketplace.show', $livestock->id)
+                ->with('error', 'Anda tidak dapat memesan hewan ternak milik kandang Anda sendiri.');
+        }
 
         return Inertia::render('Checkout', [
             'livestock' => $livestock,
@@ -32,6 +36,19 @@ class OrderController extends Controller
      */
     public function store(Request $request): RedirectResponse|JsonResponse
     {
+        $buyer = $request->user();
+
+        if (! $buyer) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Silakan masuk atau buat akun terlebih dahulu untuk melakukan pemesanan.',
+                ], 401);
+            }
+
+            return redirect()->route('login')->with('error', 'Silakan masuk atau daftar akun terlebih dahulu untuk membeli hewan ternak.');
+        }
+
         $validated = $request->validate([
             'livestock_id' => ['required', 'exists:livestocks,id'],
             'buyer_name' => ['required', 'string', 'max:255'],
@@ -55,25 +72,21 @@ class OrderController extends Controller
             return redirect()->back()->with('error', 'Maaf, ternak ini sudah dipesan orang lain.');
         }
 
-        $authenticatedUser = $request->user();
-        if ($authenticatedUser) {
-            $buyer = $authenticatedUser;
-            $buyer->update([
-                'phone_number' => $buyer->phone_number ?: $validated['buyer_phone'],
-                'address' => $buyer->address ?: $validated['shipping_address'],
-            ]);
-        } else {
-            $buyer = User::firstOrCreate(
-                ['phone_number' => $validated['buyer_phone']],
-                [
-                    'name' => $validated['buyer_name'],
-                    'email' => 'buyer_'.time().'_'.mt_rand(100, 999).'@freshfarm.local',
-                    'password' => bcrypt('password123'),
-                    'role' => 'buyer',
-                    'address' => $validated['shipping_address'],
-                ]
-            );
+        if ($livestock->seller_id === $buyer->id) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak dapat memesan hewan ternak milik kandang Anda sendiri.',
+                ], 422);
+            }
+
+            return redirect()->back()->with('error', 'Anda tidak dapat memesan hewan ternak milik kandang Anda sendiri.');
         }
+
+        $buyer->update([
+            'phone_number' => $buyer->phone_number ?: $validated['buyer_phone'],
+            'address' => $buyer->address ?: $validated['shipping_address'],
+        ]);
 
         $shippingCost = 0;
         if ($validated['delivery_method'] === 'courier') {
@@ -138,11 +151,7 @@ class OrderController extends Controller
             ]);
         }
 
-        $redirectRoute = $authenticatedUser
-            ? redirect()->route('dashboard', ['tab' => 'orders'])
-            : redirect()->route('marketplace.show', $livestock->id);
-
-        return $redirectRoute->with('order_success', [
+        return redirect()->route('dashboard', ['tab' => 'orders'])->with('order_success', [
             'order_id' => $order->id,
             'whatsapp_url' => $waUrl,
             'livestock_title' => $livestock->title,

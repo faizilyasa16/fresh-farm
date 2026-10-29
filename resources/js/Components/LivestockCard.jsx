@@ -11,8 +11,27 @@ export function formatRupiah(value) {
     return rupiahFormatter.format(Number(value) || 0);
 }
 
+const FALLBACK_IMAGES = {
+    sapi: '/images/sapi-limousin.jpg',
+    kambing: '/images/kambing-etawa.jpg',
+    domba: '/images/domba-garut.jpg',
+    kerbau: '/images/kerbau-murrah.jpg',
+};
+
+function getFallbackImage(livestock) {
+    if (!livestock) return '/images/hero-farm.jpg';
+    const breed = (livestock.breed || '').toLowerCase();
+    if (breed.includes('texel')) return '/images/domba-texel.jpg';
+    if (breed.includes('randu')) return '/images/kambing-jawa-randu.jpg';
+    if (breed.includes('simental')) return '/images/sapi-simental.jpg';
+    if (breed.includes('po') || breed.includes('ongole')) return '/images/sapi-po.jpg';
+    if (breed.includes('madura') || breed.includes('magetan')) return '/images/sapi-madura.jpg';
+    const slug = (livestock.category?.slug || '').toLowerCase();
+    return FALLBACK_IMAGES[slug] || '/images/hero-farm.jpg';
+}
+
 const LivestockCard = memo(function LivestockCard({ livestock, contain = false }) {
-    const primaryImage = livestock.images?.[0]?.image_url || '/images/hero-farm.jpg';
+    const primaryImage = livestock.images?.[0]?.image_url || getFallbackImage(livestock);
     const pricePerKg = livestock.weight_kg > 0
         ? Math.round(Number(livestock.price) / Number(livestock.weight_kg)).toLocaleString('id-ID')
         : '0';
@@ -31,7 +50,8 @@ const LivestockCard = memo(function LivestockCard({ livestock, contain = false }
                     height="450"
                     loading="lazy"
                     decoding="async"
-                    className="w-full h-full object-cover"
+                    draggable={false}
+                    className="w-full h-full object-cover select-none pointer-events-none"
                 />
 
                 <div className="absolute bottom-3 right-3 bg-[#1C1917]/90 text-white text-xs px-2.5 py-1 rounded-md font-semibold tabular-nums">
@@ -58,7 +78,8 @@ const LivestockCard = memo(function LivestockCard({ livestock, contain = false }
                         {/* Stretched link: after:inset-0 bikin seluruh card bisa diklik */}
                         <Link
                             href={`/livestock/${livestock.id}`}
-                            className="hover:text-[#1B4332] transition-colors rounded-sm after:absolute after:inset-0 after:content-['']"
+                            draggable={false}
+                            className="hover:text-[#1B4332] transition-colors rounded-sm after:absolute after:inset-0 after:content-[''] select-none"
                         >
                             {livestock.title}
                         </Link>

@@ -72,11 +72,21 @@ class MarketplaceTest extends TestCase
         ]);
     }
 
-    public function test_can_view_checkout_page(): void
+    public function test_guest_is_redirected_to_login_when_accessing_checkout(): void
     {
         $livestock = Livestock::first();
 
         $response = $this->get("/checkout/{$livestock->id}");
+
+        $response->assertRedirect('/login');
+    }
+
+    public function test_authenticated_buyer_can_view_checkout_page(): void
+    {
+        $buyer = User::where('role', 'buyer')->firstOrFail();
+        $livestock = Livestock::first();
+
+        $response = $this->actingAs($buyer)->get("/checkout/{$livestock->id}");
 
         $response->assertStatus(200);
     }
@@ -91,8 +101,26 @@ class MarketplaceTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
+    public function test_guest_cannot_create_order_without_account(): void
+    {
+        $livestock = Livestock::where('status', 'available')->first();
+
+        $orderData = [
+            'livestock_id' => $livestock->id,
+            'buyer_name' => 'Tamu Tanpa Akun',
+            'buyer_phone' => '081299887766',
+            'shipping_address' => 'Jl. Kebon Jeruk No. 10, Jakarta Barat',
+            'delivery_method' => 'courier',
+        ];
+
+        $response = $this->postJson('/orders', $orderData);
+
+        $response->assertStatus(401);
+    }
+
     public function test_buyer_can_create_order_and_books_livestock(): void
     {
+        $buyer = User::where('role', 'buyer')->firstOrFail();
         $livestock = Livestock::where('status', 'available')->first();
 
         $orderData = [
@@ -104,7 +132,7 @@ class MarketplaceTest extends TestCase
             'notes' => 'Tolong mandikan sebelum dikirim',
         ];
 
-        $response = $this->postJson('/orders', $orderData);
+        $response = $this->actingAs($buyer)->postJson('/orders', $orderData);
 
         $response->assertStatus(200);
         $response->assertJson([
@@ -112,6 +140,7 @@ class MarketplaceTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('orders', [
+            'buyer_id' => $buyer->id,
             'shipping_address' => 'Jl. Kebon Jeruk No. 10, Jakarta Barat',
             'order_status' => 'pending_payment',
         ]);

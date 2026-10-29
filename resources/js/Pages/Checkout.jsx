@@ -83,16 +83,14 @@ export default function Checkout({ livestock }) {
                             tidak dipesan pembeli lain.
                         </p>
                     </div>
-                    {!currentUser && (
-                        <div className="text-xs text-[#57534E] bg-[#F4F2EC] px-4 py-3 rounded-xl border border-[#D6D3CB]">
-                            Sudah punya akun?{" "}
-                            <Link
-                                href="/login"
-                                className="font-bold text-[#1B4332] underline"
-                            >
-                                Masuk di sini
-                            </Link>{" "}
-                            agar pesanan tersimpan di Dashboard Pembeli.
+                    {currentUser && (
+                        <div className="text-xs text-[#1B4332] bg-[#D8F3DC] px-4 py-3 rounded-xl border border-[#2D6A4F]/30 flex items-center gap-2">
+                            <svg className="w-4 h-4 shrink-0 text-[#1B4332]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>
+                                Akun Pembeli: <strong className="font-bold">{currentUser.name}</strong> ({currentUser.email})
+                            </span>
                         </div>
                     )}
                 </div>

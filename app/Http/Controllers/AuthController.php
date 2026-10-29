@@ -84,7 +84,7 @@ class AuthController extends Controller
             ? 'Akun mitra peternak berhasil dibuat. Silakan tambahkan data ternak kandang Anda.'
             : 'Akun pembeli berhasil dibuat. Selamat menjelajahi ternak terverifikasi.';
 
-        return redirect()->route('dashboard')->with('success', $welcomeMessage);
+        return redirect()->intended(route('dashboard'))->with('success', $welcomeMessage);
     }
 
     public function logout(Request $request): RedirectResponse
