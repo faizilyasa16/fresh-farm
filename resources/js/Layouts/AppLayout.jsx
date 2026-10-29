@@ -90,7 +90,7 @@ export default function AppLayout({ children, currentRoute = '' }) {
             <header className="sticky top-0 z-40 bg-white border-b border-[#D6D3CB]">
                 <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 py-2.5 flex items-center justify-between gap-4">
                     <Link href="/" className="min-h-11 flex items-center gap-3 group shrink-0">
-                        <img src="/images/logo.png" alt="Fresh Farm" className="h-15 w-auto" />
+                        <img src="/images/logo.png" alt="Fresh Farm" className="h-10 sm:h-12 w-auto object-contain" />
                         <div>
                             <div className="text-lg sm:text-xl font-bold tracking-tight text-[#1B4332] leading-tight">
                                 {COMPANY_NAME}
@@ -489,7 +489,7 @@ export default function AppLayout({ children, currentRoute = '' }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 mb-10">
                         <div>
                             <div className="flex items-center gap-2.5 mb-4">
-                                <img src="/images/logo.png" alt="Fresh Farm" className="h-15 w-auto bg-white rounded-xl" />
+                                <img src="/images/logo.png" alt="Fresh Farm" className="h-10 sm:h-12 w-auto bg-white rounded-xl p-1 object-contain" />
                                 <span className="text-xl font-bold tracking-tight">{COMPANY_NAME}</span>
                             </div>
                             <p className="text-sm text-[#D8F3DC] leading-relaxed mb-4">
